@@ -1,0 +1,71 @@
+name: Nöbet listesini güncelle ve yayınla
+
+on:
+  schedule:
+    - cron: '35 21 * * *'   # 00:35 İstanbul — EczaneAPI gece 00:00'da yeniliyor
+    - cron: '5 4 * * *'     # 07:05 İstanbul — gece başarısız olduysa yedek deneme
+    - cron: '5 15 * * *'    # 18:05 İstanbul — ikinci yedek
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Bugün çekilmiş olsa bile API’den tekrar iste'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: nobetci
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Nöbet listesini çek
+        if: github.event_name != 'push'
+        run: node scripts/fetch.mjs
+        env:
+          ECZANEAPI_KEY: ${{ secrets.ECZANEAPI_KEY }}
+          CITIES: ${{ vars.CITIES || 'istanbul' }}
+          FORCE: ${{ inputs.force && '1' || '' }}
+
+      - name: Veriyi repoya kaydet
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "Değişiklik yok."
+          else
+            git commit -m "Nöbet listesi $(TZ=Europe/Istanbul date +'%Y-%m-%d %H:%M')"
+            git push
+          fi
+
+      - name: Siteyi hazırla
+        run: |
+          mkdir -p _site
+          cp index.html manifest.webmanifest sw.js _site/
+          cp -r icons data _site/
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

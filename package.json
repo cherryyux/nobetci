@@ -1,0 +1,10 @@
+{
+  "name": "nobetci",
+  "private": true,
+  "description": "En yakın nöbetçi eczane, tek dokunuşla.",
+  "scripts": {
+    "fetch": "node scripts/fetch.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {"node": ">=20"}
+}

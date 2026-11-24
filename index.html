@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nöbetçi Eczane</title>
+<meta name="description" content="En yakın nöbetçi eczane, tek dokunuşla: ara ya da yol tarifi al.">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f2ee" media="(prefers-color-scheme: light)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&display=swap" rel="stylesheet">
+<style>
+/* VOICE   calm and quick, for someone standing in the street at 2am: few words, huge targets
+   IDEA    the lit "nöbetçi eczane" sign — a red E glowing on a dark street
+   PICTURE the nearest pharmacy as a red sign-card with Ara / Yol tarifi, at the very top
+   COLOUR  night ink, sign red, paper white; the light theme is the same sign by day
+   TYPE    Archivo condensed 800 for sign names, system UI for everything else
+   LAYOUT  one column: nearest first, the rest as a quiet list, district picker as the fallback */
+:root{color-scheme:light dark;--bg:#f4f2ee;--card:#fff;--ink:#15161a;--mute:#5b5f67;--line:#e2ded7;--red:#d90f1f;--red-deep:#a30a16;--glow:0 0 0 transparent}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1115;--card:#191c22;--ink:#f3f1ec;--mute:#a2a6af;--line:#2a2e36;--glow:0 0 28px rgba(230,20,40,.55)}}
+:root[data-theme=dark]{color-scheme:dark;--bg:#0f1115;--card:#191c22;--ink:#f3f1ec;--mute:#a2a6af;--line:#2a2e36;--glow:0 0 28px rgba(230,20,40,.55)}
+:root[data-theme=light]{color-scheme:light}
+*{box-sizing:border-box;min-width:0}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow-x:clip;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.wrap{max-width:560px;margin:0 auto;padding:0 16px}
+.sign-font{font-family:Archivo,"Roboto Condensed","Arial Narrow",system-ui,sans-serif;font-stretch:75%;font-variation-settings:"wdth" 75}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.sign-card :focus-visible{outline-color:#fff}
+
+.top{display:flex;align-items:center;gap:12px;padding:18px 0 14px}
+.badge{flex:none;width:44px;height:44px;border-radius:12px;background:var(--red);display:grid;place-items:center;box-shadow:var(--glow)}
+.badge svg{width:24px;height:24px}
+.top h1{margin:0;font:800 24px/1.05 Archivo,system-ui,sans-serif;font-stretch:75%;font-variation-settings:"wdth" 75;text-transform:uppercase;letter-spacing:.01em}
+.status{margin:2px 0 0;font-size:14px;color:var(--mute)}
+.status b{color:var(--ink);font-weight:600}
+.top .ghost{margin-left:auto}
+.ghost{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.ghost svg{width:20px;height:20px}
+
+.sign-card{position:relative;overflow:hidden;background:var(--red);color:#fff;border-radius:22px;padding:20px 20px 18px;box-shadow:0 22px 44px -22px rgba(217,15,31,.7)}
+.sign-card>*{position:relative}
+.sign-card .wm{position:absolute;right:-58px;top:-46px;width:190px;height:190px;opacity:.09;pointer-events:none}
+.kicker{margin:0 0 6px;font-size:15px}
+.kicker b{font-weight:700}
+.pname{margin:0 0 10px;font:800 clamp(32px,9.5vw,46px)/1 Archivo,"Roboto Condensed","Arial Narrow",system-ui,sans-serif;font-stretch:75%;font-variation-settings:"wdth" 75;text-transform:uppercase;text-wrap:balance;overflow-wrap:anywhere}
+.addr{margin:0 0 2px;font-size:16px;line-height:1.4}
+.tel{margin:0 0 16px;font-size:15px;opacity:.9;font-variant-numeric:tabular-nums;white-space:nowrap}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:58px;padding:0 14px;border-radius:15px;border:0;font:700 18px/1 system-ui,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn svg{width:22px;height:22px;flex:none}
+.btn.light{background:#fff;color:var(--red-deep)}
+.btn.line{background:transparent;color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.9)}
+.btn.solid{background:var(--red);color:#fff}
+.btn[aria-disabled=true]{opacity:.5;pointer-events:none}
+.subacts{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;font-size:14px}
+.link{background:none;border:0;color:inherit;font:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:10px 0;min-height:44px}
+.pulse{width:14px;height:14px;border-radius:50%;background:#fff;display:inline-block;margin-right:8px;vertical-align:-1px;animation:p 1.2s ease-in-out infinite}
+@keyframes p{50%{opacity:.25;transform:scale(.7)}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+
+.note{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin:0}
+.note h2{margin:0 0 6px;font-size:18px}
+.note p{margin:0 0 10px;color:var(--mute)}
+.note p:last-child{margin-bottom:0}
+.day{margin:12px 0 0;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-size:14px;color:var(--mute)}
+.day b{color:var(--ink)}
+
+h2.sec{font-size:15px;font-weight:600;color:var(--mute);margin:26px 2px 8px}
+.list{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.row{display:flex;gap:10px;align-items:center;padding:12px 10px 12px 16px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.rmain{flex:1}
+.rtop{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
+.rname{font-weight:650;font-size:16px;line-height:1.25}
+.rdist{flex:none;font-size:14px;font-weight:600;color:var(--red);font-variant-numeric:tabular-nums;white-space:nowrap}
+.raddr{display:block;font-size:14px;color:var(--mute);line-height:1.35;margin-top:2px}
+.ract{display:flex;gap:6px;flex:none}
+.ibtn{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--red);border:1px solid var(--line);text-decoration:none}
+.ibtn svg{width:20px;height:20px}
+.ibtn[aria-disabled=true]{opacity:.35;pointer-events:none}
+.more{width:100%;margin-top:10px;min-height:48px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:600 16px system-ui,sans-serif;cursor:pointer}
+.empty{padding:18px 16px;color:var(--mute);margin:0}
+
+.picker{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.field{position:relative}
+.field svg{position:absolute;right:14px;top:50%;width:18px;height:18px;transform:translateY(-50%);pointer-events:none;color:var(--mute)}
+select,input[type=search]{width:100%;min-height:52px;font:16px system-ui,sans-serif;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:0 44px 0 14px;appearance:none;-webkit-appearance:none}
+input[type=search]{padding-right:14px}
+
+footer{margin:28px 0 36px;font-size:14px;color:var(--mute)}
+footer p{margin:0 0 10px}
+footer strong{color:var(--ink)}
+.meta.stale{color:var(--red);font-weight:600}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="e" viewBox="0 0 24 24"><path fill="currentColor" d="M5 3h14v4H9.5v3H17v4H9.5v3H19v4H5z"/></symbol>
+  <symbol id="phone" viewBox="0 0 24 24"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.3 0 .7-.2 1z"/></symbol>
+  <symbol id="go" viewBox="0 0 24 24"><path fill="currentColor" d="M21.7 11.3 12.7 2.3a1 1 0 0 0-1.4 0l-9 9a1 1 0 0 0 0 1.4l9 9a1 1 0 0 0 1.4 0l9-9a1 1 0 0 0 0-1.4zM14 14.5V12h-4v3H8v-4a1 1 0 0 1 1-1h5V7.5l3.5 3.5z"/></symbol>
+  <symbol id="loc" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9 3h-2.1A7 7 0 0 0 13 5.1V3h-2v2.1A7 7 0 0 0 5.1 11H3v2h2.1a7 7 0 0 0 5.9 5.9V21h2v-2.1a7 7 0 0 0 5.9-5.9H21zm-9 6a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></symbol>
+  <symbol id="chev" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" d="m6 9 6 6 6-6"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header class="top">
+    <div class="badge" aria-hidden="true"><svg style="color:#fff"><use href="#e"/></svg></div>
+    <div>
+      <h1>Nöbetçi eczane</h1>
+      <p class="status" id="status">Yükleniyor…</p>
+    </div>
+    <button class="ghost" id="relocate" type="button" aria-label="Konumumu yeniden bul"><svg><use href="#loc"/></svg></button>
+  </header>
+
+  <main>
+    <section id="hero" aria-live="polite"></section>
+
+    <section id="nearSec" hidden>
+      <h2 class="sec">Yakındaki diğer nöbetçiler</h2>
+      <ol class="list" id="nearList"></ol>
+      <button class="more" id="more" type="button">Daha fazla göster</button>
+    </section>
+
+    <section id="distSec">
+      <h2 class="sec" id="distTitle">İlçeye göre bak</h2>
+      <div class="picker">
+        <div class="field">
+          <select id="district" aria-label="İlçe seç"></select>
+          <svg aria-hidden="true"><use href="#chev"/></svg>
+        </div>
+        <input id="q" type="search" placeholder="Eczane adı ya da mahalle ara" aria-label="Eczane adı ya da mahalle ara" autocomplete="off" enterkeyhint="search">
+      </div>
+      <ol class="list" id="distList" style="margin-top:10px"></ol>
+    </section>
+  </main>
+
+  <footer>
+    <p><strong>Gitmeden önce ara.</strong> Nöbet değişebilir. Gece yarısından sonra nöbetçiler kepenk arkasından hizmet verebilir; kapalı görünse de zile bas.</p>
+    <p class="meta" id="meta"></p>
+    <p>Resmî listeler: <a href="https://www.turkiye.gov.tr/saglik-titck-nobetci-eczane-sorgulama" rel="noopener">e-Devlet (TİTCK)</a> · <a href="https://www.istanbuleczaciodasi.org.tr/nobetci-eczane/" rel="noopener">İstanbul Eczacı Odası</a></p>
+  </footer>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+{
+const $ = s => document.querySelector(s);
+const TZ = 'Europe/Istanbul';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch {} }
+};
+const state = {files: [], rows: [], here: null, geo: 'idle', shown: 6, duty: null, loaded: false, district: undefined};
+
+// ---------- time: which night's list is running ----------
+function trNow(d = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {timeZone: TZ, year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', hourCycle:'h23', weekday:'short'}).formatToParts(d).map(x => [x.type, x.value]));
+  return {day: `${p.year}-${p.month}-${p.day}`, hour: +p.hour, wd: p.weekday};
+}
+const addDays = (day, n) => new Date(Date.parse(day + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+const dayName = day => new Intl.DateTimeFormat('tr-TR', {day:'numeric', month:'long', timeZone:'UTC'}).format(new Date(day + 'T12:00:00Z'));
+// The duty day turns over at 09:00 Turkey time: before that, last night's list is still running.
+function dutyInfo(now = new Date()) {
+  const t = trNow(now);
+  if (t.hour < 9) return {day: addDays(t.day, -1), live: true, label: 'Şu an nöbette · sabah <b>09:00</b>’a kadar'};
+  if (t.wd === 'Sun') return {day: t.day, live: true, label: 'Pazar nöbeti · yarın sabah <b>09:00</b>’a kadar'};
+  if (t.hour >= 19) return {day: t.day, live: true, label: 'Şu an nöbette · sabah <b>09:00</b>’a kadar'};
+  return {day: t.day, live: false, label: 'Gündüz çoğu eczane açık · aşağıdakiler <b>bu akşam</b> nöbetçi'};
+}
+
+// ---------- formatting ----------
+function km(a, b) {
+  const r = x => x * Math.PI / 180, dLat = r(b.y - a.lat), dLng = r(b.x - a.lng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.y)) * Math.sin(dLng / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(s));
+}
+const fmtDist = k => k < 1 ? `${Math.max(50, Math.round(k * 20) * 50)} m` : `${k.toLocaleString('tr-TR', {maximumFractionDigits: k < 10 ? 1 : 0})} km`;
+const walk = k => { const m = Math.round(k * 1300 / 80); return m <= 40 ? `yürüyerek ~${Math.max(1, m)} dk` : ''; };
+const fmtTel = t => t ? `${t.slice(0,4)} ${t.slice(4,7)} ${t.slice(7,9)} ${t.slice(9)}` : '';
+const telHref = t => t ? `tel:+90${t.slice(1)}` : '';
+const mapsHref = p => p.y != null
+  ? `https://www.google.com/maps/dir/?api=1&destination=${p.y},${p.x}&travelmode=walking`
+  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.n, p.a, p.d, p.c].filter(Boolean).join(' '))}`;
+const addrText = p => p.a ? [p.a, p.d].filter(Boolean).join(' · ') : `${p.d ? p.d + ' · ' : ''}adres paylaşılmamış, telefonla sor`;
+const icon = id => `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
+
+// ---------- data ----------
+async function getJSON(u) {
+  const r = await fetch(u, {cache: 'no-cache'});
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+async function loadData() {
+  const idx = await getJSON('data/index.json').catch(() => null);
+  const cities = idx?.cities?.length ? idx.cities : [{slug: 'istanbul', name: 'İstanbul'}];
+  const files = await Promise.all(cities.map(c => getJSON(`data/${encodeURIComponent(c.slug)}.json`).catch(() => null)));
+  state.files = files.filter(f => f && f.days);
+  state.loaded = true;
+  pickRows();
+}
+function pickRows() {
+  state.duty = dutyInfo();
+  state.rows = state.files.flatMap(f => (f.days[state.duty.day] || []).map(p => ({...p, c: f.name})));
+}
+
+// ---------- location ----------
+function locate() {
+  if (!('geolocation' in navigator)) { state.geo = 'unsupported'; render(); return; }
+  state.geo = 'locating'; render();
+  navigator.geolocation.getCurrentPosition(pos => {
+    state.here = {lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy};
+    state.geo = 'ok'; state.shown = 6; render();
+  }, err => {
+    state.geo = err.code === 1 ? 'denied' : 'error'; render();
+  }, {enableHighAccuracy: false, timeout: 12000, maximumAge: 60000});
+}
+
+// ---------- rendering ----------
+function rowHtml(p) {
+  const dist = p.k != null ? `<span class="rdist">${fmtDist(p.k)}</span>` : '';
+  return `<li class="row"><div class="rmain"><div class="rtop"><span class="rname">${esc(p.n)}</span>${dist}</div>
+    <span class="raddr">${esc(addrText(p))}</span></div>
+    <div class="ract">
+      ${p.t ? `<a class="ibtn" href="${esc(telHref(p.t))}" aria-label="Ara: ${esc(p.n)} ${esc(fmtTel(p.t))}">${icon('phone')}</a>` : `<span class="ibtn" aria-disabled="true" title="Telefon yok">${icon('phone')}</span>`}
+      <a class="ibtn" href="${esc(mapsHref(p))}" target="_blank" rel="noopener" aria-label="Yol tarifi: ${esc(p.n)}">${icon('go')}</a>
+    </div></li>`;
+}
+function heroCard(p) {
+  const lead = state.duty.live ? 'En yakın' : 'Bu akşam en yakın';
+  const bits = [lead, p.k != null ? `<b>${fmtDist(p.k)}</b>` : '', p.k != null ? walk(p.k) : ''].filter(Boolean).join(' · ');
+  const side = state.files.length > 1 ? esc(p.c || '') : (p.k != null ? 'mesafe kuş uçuşu' : '');
+  const rough = state.here?.acc > 1500 ? '<p class="kicker" style="opacity:.85">Konumun yaklaşık, mesafeler kaba.</p>' : '';
+  return `<article class="sign-card">
+    <svg class="wm" style="color:#fff" aria-hidden="true"><use href="#e"/></svg>
+    <p class="kicker">${bits}</p>
+    <h2 class="pname">${esc(p.n)}</h2>
+    <p class="addr">${esc(addrText(p))}</p>
+    <p class="tel">${p.t ? esc(fmtTel(p.t)) : 'Telefon bilgisi yok'}</p>
+    <div class="actions">
+      ${p.t ? `<a class="btn light" href="${esc(telHref(p.t))}">${icon('phone')}Ara</a>` : `<span class="btn light" aria-disabled="true">${icon('phone')}Ara</span>`}
+      <a class="btn line" href="${esc(mapsHref(p))}" target="_blank" rel="noopener">${icon('go')}Yol tarifi</a>
+    </div>
+    ${rough}
+    <div class="subacts"><button class="link" type="button" data-share="${esc(p.id)}">Paylaş</button><span style="opacity:.8">${side}</span></div>
+  </article>`;
+}
+function note(title, body, extra = '') {
+  return `<div class="note"><h2>${title}</h2><p>${body}</p>${extra}</div>`;
+}
+const officialLinks = '<p><a href="https://www.turkiye.gov.tr/saglik-titck-nobetci-eczane-sorgulama" rel="noopener">e-Devlet nöbetçi eczane sorgulama</a> · <a href="https://www.istanbuleczaciodasi.org.tr/nobetci-eczane/" rel="noopener">İstanbul Eczacı Odası</a></p>';
+
+function renderHero(sorted) {
+  const hero = $('#hero');
+  if (!state.loaded) { hero.innerHTML = ''; return; }
+  if (!state.rows.length) {
+    hero.innerHTML = note('Bu gecenin listesi henüz gelmedi',
+      `${esc(dayName(state.duty.day))} nöbet listesi sunucuda yok. Liste her gece yenileniyor; bu arada resmî kaynaklara bak.`, officialLinks);
+    return;
+  }
+  if (state.geo === 'locating' && !state.here) {
+    hero.innerHTML = `<article class="sign-card"><svg class="wm" style="color:#fff" aria-hidden="true"><use href="#e"/></svg>
+      <p class="kicker"><span class="pulse"></span>Konumun alınıyor…</p>
+      <h2 class="pname" style="opacity:.55">En yakın nöbetçi</h2>
+      <p class="addr">Konum iznini verince hemen burada.</p>
+      <div class="subacts"><button class="link" type="button" data-act="pick">Konum yerine ilçe seç</button></div></article>`;
+    return;
+  }
+  if (!state.here) {
+    const why = state.geo === 'denied' ? 'Konum izni verilmedi.' : state.geo === 'unsupported' ? 'Bu tarayıcı konum vermiyor.' : state.geo === 'error' ? 'Konum alınamadı.' : 'Konumunu paylaşırsan en yakını en üstte gösteririm.';
+    hero.innerHTML = note('En yakın nöbetçiyi bulalım', `${why} Aşağıdan ilçeni seçebilirsin.`,
+      `<button class="btn solid" type="button" data-act="locate" style="width:100%">${icon('loc')}Konumumu kullan</button>`);
+    return;
+  }
+  const first = sorted[0];
+  if (!first || first.k > 60) {
+    const names = state.files.map(f => f.name).join(', ');
+    hero.innerHTML = note('Yakınında listede nöbetçi yok', `Bu uygulama şu an ${esc(names)} listesini gösteriyor. İlçe seçerek bakabilirsin.`, officialLinks);
+    return;
+  }
+  hero.innerHTML = heroCard(first) + (state.duty.live ? '' : `<p class="day">Nöbet akşam başlar. <b>Gündüzse en yakın eczane büyük ihtimalle zaten açık.</b></p>`);
+}
+
+function render() {
+  if (!state.loaded) return;
+  pickRows();
+  const d = state.duty;
+  const updated = state.files.map(f => f.fetchedAt).filter(Boolean).sort().pop();
+  $('#status').innerHTML = state.rows.length ? `${d.label}` : 'Liste bekleniyor';
+
+  // nearest
+  let sorted = [];
+  if (state.here) {
+    sorted = state.rows.filter(p => p.y != null).map(p => ({...p, k: km(state.here, p)})).sort((a, b) => a.k - b.k);
+  }
+  renderHero(sorted);
+  const rest = sorted.slice(1, 1 + state.shown).filter(p => p.k <= 60);
+  $('#nearSec').hidden = !rest.length;
+  $('#nearList').innerHTML = rest.map(rowHtml).join('');
+  $('#more').hidden = sorted.length <= 1 + state.shown || rest.length < state.shown;
+
+  // district picker
+  const dists = [...new Set(state.rows.map(p => p.d).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr'));
+  const sel = $('#district');
+  const current = state.district ?? store.get('district') ?? (sorted[0]?.d ?? '');
+  sel.innerHTML = `<option value="">Tüm ilçeler (${state.rows.length})</option>` +
+    dists.map(x => `<option value="${esc(x)}">${esc(x)} (${state.rows.filter(p => p.d === x).length})</option>`).join('');
+  sel.value = dists.includes(current) ? current : '';
+  $('#distTitle').textContent = state.here ? 'İlçeye göre bak' : 'İlçeni seç';
+  renderDistrict(sorted);
+
+  const meta = $('#meta');
+  if (updated) {
+    const stale = Date.now() - Date.parse(updated) > 36 * 3600e3;
+    const when = new Intl.DateTimeFormat('tr-TR', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', timeZone: TZ}).format(new Date(updated));
+    meta.textContent = `${dayName(d.day)} nöbet listesi · güncellendi ${when}${stale ? ' · ESKİ OLABİLİR, resmî listeye bak' : ''} · veri: EczaneAPI`;
+    meta.classList.toggle('stale', stale);
+  } else meta.textContent = 'Henüz veri yok.';
+}
+
+function renderDistrict(sorted) {
+  const sel = $('#district').value, q = $('#q').value.trim().toLocaleLowerCase('tr-TR');
+  const pool = state.here ? [...sorted, ...state.rows.filter(p => p.y == null)] : [...state.rows];
+  let list = pool.filter(p => (!sel || p.d === sel) && (!q || `${p.n} ${p.a} ${p.d}`.toLocaleLowerCase('tr-TR').includes(q)));
+  if (!state.here) list.sort((a, b) => a.d.localeCompare(b.d, 'tr') || a.n.localeCompare(b.n, 'tr'));
+  if (!state.here && !sel && !q && state.rows.length) {
+    $('#distList').innerHTML = `<li class="empty">İlçeni seç ya da eczane adı yaz.</li>`;
+    return;
+  }
+  const capped = !sel && !q ? list.slice(0, 30) : list;
+  $('#distList').innerHTML = capped.length ? capped.map(rowHtml).join('') +
+    (capped.length < list.length ? `<li class="empty">${list.length - capped.length} eczane daha var; ilçe seç ya da ara.</li>` : '')
+    : `<li class="empty">${state.rows.length ? 'Eşleşen nöbetçi yok.' : 'Liste henüz yok.'}</li>`;
+}
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 1800);
+}
+
+// ---------- events ----------
+document.addEventListener('click', async e => {
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'locate') locate();
+  if (act === 'pick') { $('#distSec').scrollIntoView({behavior: 'smooth', block: 'start'}); $('#district').focus(); }
+  const sid = e.target.closest('[data-share]')?.dataset.share;
+  if (sid) {
+    const p = state.rows.find(r => r.id === sid);
+    if (!p) return;
+    const text = [`${p.n} (nöbetçi)`, addrText(p), fmtTel(p.t), mapsHref(p)].filter(Boolean).join('\n');
+    if (navigator.share) { try { await navigator.share({title: p.n, text}); } catch {} }
+    else { try { await navigator.clipboard.writeText(text); toast('Kopyalandı'); } catch { toast('Kopyalanamadı'); } }
+  }
+});
+$('#relocate').addEventListener('click', locate);
+$('#more').addEventListener('click', () => { state.shown += 10; render(); });
+$('#district').addEventListener('change', e => { state.district = e.target.value; store.set('district', e.target.value); render(); });
+$('#q').addEventListener('input', () => render());
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.loaded) render(); });
+
+// ---------- start ----------
+(async () => {
+  await loadData();
+  render();
+  let perm = 'prompt';
+  try { perm = (await navigator.permissions.query({name: 'geolocation'})).state; } catch {}
+  if (perm === 'denied') { state.geo = 'denied'; render(); } else locate();
+})();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
