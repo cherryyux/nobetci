@@ -54,6 +54,10 @@ export function payload(today) {
         location: {latitude: 0, longitude: 0}, city: {slug: 'istanbul'}, district: {name: 'Fatih'}, duty: {date}});
       list.push({id: 'other-city', name: 'Başka İl Eczanesi', address: 'x', phone: '02240001122',
         location: {latitude: 40.19, longitude: 29.06}, city: {slug: 'bursa', name: 'Bursa'}, district: {name: 'Osmangazi'}, duty: {date}});
+      list.push({id: 'ankara-leak', name: 'Park Eczanesi', address: 'Tunalı Hilmi Cad.', phone: '03120001122',
+        location: null, city: {slug: 'istanbul'}, district: {name: 'Çankaya'}, duty: {date}});
+      list.push({id: 'old-name', name: 'Eski Ad Eczanesi', address: 'Örnek Sk. No:9', phone: '02120001133',
+        location: {latitude: 41.05, longitude: 28.93}, city: {slug: 'istanbul'}, district: {name: 'Eyüp'}, duty: {date}});
       list.push({id: 'broken'});
       list.push({...list[0]}); // duplicate
     }

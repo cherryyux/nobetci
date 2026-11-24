@@ -36,11 +36,14 @@ test('phone numbers are normalised to 0XXXXXXXXXX', () => {
 });
 
 test('transform keeps good rows, drops broken ones, other cities and duplicates', () => {
-  const {days, skipped, noPoint} = transform(payload(today), 'istanbul');
+  const {days, skipped, noPoint, foreign} = transform(payload(today), 'istanbul');
   const y = days[day(today, -1)];
   assert.ok(y && days[today] && days[day(today, 1)], 'three days');
   assert.equal(skipped, 1, 'one row without a name');
   assert.equal(noPoint, 1, 'one row with 0,0');
+  assert.equal(foreign, 1, 'Çankaya row filed under İstanbul is dropped');
+  assert.ok(!y.some(r => r.d === 'Çankaya'));
+  assert.equal(y.find(r => r.id === 'old-name').d, 'Eyüpsultan', 'Eyüp mapped to Eyüpsultan');
   assert.ok(!y.some(r => r.n === 'Başka İl Eczanesi'), 'other city left out');
   assert.equal(new Set(y.map(r => r.id)).size, y.length, 'no duplicate ids');
   const noAddr = y.find(r => r.id === 'no-addr');
@@ -82,11 +85,13 @@ test('end to end: one request a day, FORCE asks again, failures keep the old fil
   assert.deepEqual(Object.keys(out.days), [day(today, -1), today, day(today, 1)]);
   const idx = JSON.parse(await readFile(join(dir, 'index.json'), 'utf8'));
   assert.deepEqual(idx.cities, [{slug: 'istanbul', name: 'İstanbul'}]);
+  const idxBefore = await readFile(join(dir, 'index.json'), 'utf8');
 
   r = await run(env);
   assert.equal(r.code, 0);
   assert.equal(calls, 1, 'second run the same day does not call the API');
   assert.match(r.stdout, /zaten çekilmiş/);
+  assert.equal(await readFile(join(dir, 'index.json'), 'utf8'), idxBefore, 'skipped run leaves index.json alone (no commit)');
 
   r = await run({...env, FORCE: '1'});
   assert.equal(calls, 2, 'FORCE asks again');

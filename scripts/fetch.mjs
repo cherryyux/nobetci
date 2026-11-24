@@ -22,6 +22,26 @@ const CITIES = (process.env.CITIES || 'istanbul')
 const NAMES = {istanbul: 'İstanbul', yalova: 'Yalova', ankara: 'Ankara', izmir: 'İzmir', bursa: 'Bursa',
   kocaeli: 'Kocaeli', antalya: 'Antalya', tekirdag: 'Tekirdağ', sakarya: 'Sakarya', edirne: 'Edirne'};
 
+// The provider sometimes files other provinces' pharmacies under İstanbul (seen: Çankaya, Çarşamba),
+// so for these cities only known districts are kept. Old names map to current ones.
+const KNOWN_DISTRICTS = {
+  istanbul: ['Adalar', 'Arnavutköy', 'Ataşehir', 'Avcılar', 'Bağcılar', 'Bahçelievler', 'Bakırköy', 'Başakşehir',
+    'Bayrampaşa', 'Beşiktaş', 'Beykoz', 'Beylikdüzü', 'Beyoğlu', 'Büyükçekmece', 'Çatalca', 'Çekmeköy', 'Esenler',
+    'Esenyurt', 'Eyüpsultan', 'Fatih', 'Gaziosmanpaşa', 'Güngören', 'Kadıköy', 'Kağıthane', 'Kartal', 'Küçükçekmece',
+    'Maltepe', 'Pendik', 'Sancaktepe', 'Sarıyer', 'Silivri', 'Sultanbeyli', 'Sultangazi', 'Şile', 'Şişli', 'Tuzla',
+    'Ümraniye', 'Üsküdar', 'Zeytinburnu'],
+  yalova: ['Altınova', 'Armutlu', 'Çınarcık', 'Çiftlikköy', 'Merkez', 'Termal', 'Yalova'],
+};
+const DISTRICT_ALIASES = {eyup: 'Eyüpsultan'};
+
+function canonicalDistrict(citySlug, name) {
+  const known = KNOWN_DISTRICTS[citySlug];
+  if (!known) return name;
+  const s = slugify(name);
+  if (DISTRICT_ALIASES[s]) return DISTRICT_ALIASES[s];
+  return known.find(d => slugify(d) === s) ?? null;
+}
+
 export function slugify(s) {
   return String(s || '').trim().toLocaleLowerCase('tr-TR')
     .replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ş/g, 's').replace(/ü/g, 'u')
@@ -58,7 +78,7 @@ export function transform(payload, citySlug) {
   if (!payload || payload.success !== true || !payload.data) throw new Error('Beklenmeyen yanıt biçimi');
   const blocks = Array.isArray(payload.data) ? payload.data : [payload.data];
   const days = {};
-  let skipped = 0, noPoint = 0;
+  let skipped = 0, noPoint = 0, foreign = 0;
   for (const block of blocks) {
     const list = Array.isArray(block?.pharmacies) ? block.pharmacies : [];
     for (const p of list) {
@@ -67,6 +87,8 @@ export function transform(payload, citySlug) {
       if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { skipped++; continue; }
       const rowCity = slugify(p?.city?.slug || p?.city?.name || '');
       if (rowCity && citySlug && rowCity !== citySlug) continue;
+      const district = canonicalDistrict(citySlug, clean(p?.district?.name));
+      if (district === null) { foreign++; continue; }
       let lat = num(p?.location?.latitude), lng = num(p?.location?.longitude);
       // Turkey bounds; anything else is a bad point.
       if (lat === null || lng === null || lat < 35 || lat > 43 || lng < 25 || lng > 45) { lat = lng = null; noPoint++; }
@@ -74,7 +96,7 @@ export function transform(payload, citySlug) {
         id: String(p.id ?? `${name}-${date}`),
         n: name,
         a: clean(p?.address),
-        d: clean(p?.district?.name),
+        d: district,
         t: phone(p?.phone) || phone(p?.phone2),
         y: lat === null ? null : +lat.toFixed(6),
         x: lng === null ? null : +lng.toFixed(6),
@@ -86,7 +108,7 @@ export function transform(payload, citySlug) {
     }
   }
   for (const k of Object.keys(days)) days[k].sort((a, b) => a.d.localeCompare(b.d, 'tr') || a.n.localeCompare(b.n, 'tr'));
-  return {days, skipped, noPoint};
+  return {days, skipped, noPoint, foreign};
 }
 
 async function readJson(file) {
@@ -129,7 +151,7 @@ async function updateCity(slug, now) {
     return {slug, name: prev.name || NAMES[slug] || slug, ok: true, cached: true};
   }
   const payload = await request(`${API}/pharmacies/on-duty?city=${encodeURIComponent(slug)}`);
-  const {days, skipped, noPoint} = transform(payload, slug);
+  const {days, skipped, noPoint, foreign} = transform(payload, slug);
   const keepFrom = trDay(now, -1);
   // Keep yesterday onward; merge with previous file so a partial answer never drops a still-running list.
   const merged = {};
@@ -147,7 +169,7 @@ async function updateCity(slug, now) {
   };
   await writeJsonAtomic(file, out);
   const counts = Object.entries(out.days).map(([k, v]) => `${k}: ${v.length}`).join(', ');
-  console.log(`✓ ${slug}: ${counts}${skipped ? ` · ${skipped} bozuk kayıt atlandı` : ''}${noPoint ? ` · ${noPoint} kaydın konumu yok` : ''}`);
+  console.log(`✓ ${slug}: ${counts}${skipped ? ` · ${skipped} bozuk kayıt atlandı` : ''}${noPoint ? ` · ${noPoint} kaydın konumu yok` : ''}${foreign ? ` · ${foreign} başka ilden kayıt atıldı` : ''}`);
   return {slug, name: out.name, ok: true};
 }
 
@@ -167,11 +189,11 @@ export async function main(now = new Date()) {
       results.push({slug, name: prev?.name || NAMES[slug] || slug, ok: false});
     }
   }
-  const index = {
-    updatedAt: now.toISOString(),
-    cities: results.map(r => ({slug: r.slug, name: r.name})),
-  };
-  await writeJsonAtomic(join(DATA_DIR, 'index.json'), index);
+  // Rewritten only when the city list changes, so a skipped run makes no commit.
+  const index = {cities: results.map(r => ({slug: r.slug, name: r.name}))};
+  const indexFile = join(DATA_DIR, 'index.json');
+  const prevIndex = await readJson(indexFile);
+  if (JSON.stringify(prevIndex?.cities) !== JSON.stringify(index.cities)) await writeJsonAtomic(indexFile, index);
   if (results.every(r => !r.ok)) process.exitCode = 1;
 }
 

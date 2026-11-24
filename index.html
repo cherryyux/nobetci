@@ -131,6 +131,11 @@ footer strong{color:var(--ink)}
       <button class="more" id="more" type="button">Daha fazla göster</button>
     </section>
 
+    <section id="unkSec" hidden>
+      <h2 class="sec">Yakın ilçelerde, konumu bilinmeyen</h2>
+      <ol class="list" id="unkList"></ol>
+    </section>
+
     <section id="distSec">
       <h2 class="sec" id="distTitle">İlçeye göre bak</h2>
       <div class="picker">
@@ -193,7 +198,10 @@ const telHref = t => t ? `tel:+90${t.slice(1)}` : '';
 const mapsHref = p => p.y != null
   ? `https://www.google.com/maps/dir/?api=1&destination=${p.y},${p.x}&travelmode=walking`
   : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.n, p.a, p.d, p.c].filter(Boolean).join(' '))}`;
-const addrText = p => p.a ? [p.a, p.d].filter(Boolean).join(' · ') : `${p.d ? p.d + ' · ' : ''}adres paylaşılmamış, telefonla sor`;
+const lower = s => String(s || '').toLocaleLowerCase('tr-TR');
+const addrText = p => p.a
+  ? (p.d && !lower(p.a).includes(lower(p.d)) ? `${p.a} · ${p.d}` : p.a)
+  : `${p.d ? p.d + ' · ' : ''}adres paylaşılmamış, telefonla sor`;
 const icon = id => `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
 
 // ---------- data ----------
@@ -309,6 +317,12 @@ function render() {
   $('#nearSec').hidden = !rest.length;
   $('#nearList').innerHTML = rest.map(rowHtml).join('');
   $('#more').hidden = sorted.length <= 1 + state.shown || rest.length < state.shown;
+  // The source has no coordinates for some pharmacies; list those in the districts around the nearest ones
+  // so a close one is never silently left out.
+  const nearDists = new Set(sorted.slice(0, 4).filter(p => p.k <= 60).map(p => p.d));
+  const unknown = state.here ? state.rows.filter(p => p.y == null && nearDists.has(p.d)) : [];
+  $('#unkSec').hidden = !unknown.length;
+  $('#unkList').innerHTML = unknown.map(rowHtml).join('');
 
   // district picker
   const dists = [...new Set(state.rows.map(p => p.d).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr'));
