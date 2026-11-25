@@ -1,6 +1,6 @@
 // Uygulama kabuğu önbellekten anında açılır; nöbet listesi her açılışta ağdan istenir,
 // internet yoksa son indirilen liste gösterilir.
-const V = 'nobetci-v1';
+const V = 'nobetci-v2';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
