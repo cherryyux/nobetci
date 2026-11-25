@@ -26,13 +26,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -64,8 +61,24 @@ jobs:
           cp -r icons data _site/
 
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
+
+  # Ayrı iş: yayınlama, yüklenen dosya GitHub'da görünür olduktan sonra başlar.
+  # Yine de bulamazsa 30 sn bekleyip bir kez daha dener.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url || steps.retry.outputs.page_url }}
+    steps:
       - id: deploy
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - if: steps.deploy.outcome == 'failure'
+        run: sleep 30
+      - id: retry
+        if: steps.deploy.outcome == 'failure'
         uses: actions/deploy-pages@v4
