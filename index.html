@@ -296,7 +296,7 @@ function renderHero(sorted) {
     hero.innerHTML = note('Yakınında listede nöbetçi yok', `Bu uygulama şu an ${esc(names)} listesini gösteriyor. İlçe seçerek bakabilirsin.`, officialLinks);
     return;
   }
-  hero.innerHTML = heroCard(first) + (state.duty.live ? '' : `<p class="day">Nöbet akşam başlar. <b>Gündüzse en yakın eczane büyük ihtimalle zaten açık.</b></p>`);
+  hero.innerHTML = heroCard(first) + (state.duty.live ? '' : `<p class="day">Nöbet 19:00’da başlar. <b>O saate kadar en yakın eczane büyük ihtimalle zaten açık.</b></p>`);
 }
 
 function render() {

@@ -2,9 +2,11 @@ name: Nöbet listesini güncelle ve yayınla
 
 on:
   schedule:
-    - cron: '35 21 * * *'   # 00:35 İstanbul — EczaneAPI gece 00:00'da yeniliyor
-    - cron: '5 4 * * *'     # 07:05 İstanbul — gece başarısız olduysa yedek deneme
-    - cron: '5 15 * * *'    # 18:05 İstanbul — ikinci yedek
+    # Her saat :17'de bakar (GitHub saat başlarındaki işleri sık sık geciktiriyor ya da atlıyor).
+    # API'yi yalnızca iki kez çağırır: gece yarısından sonraki ilk çalışmada (yeni günün listesi)
+    # ve 17:00'den sonraki ilk çalışmada (nöbet 19:00'da başlamadan son dakika değişiklikleri).
+    # Biri atlanırsa bir saat sonraki çalışma telafi eder.
+    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       force:
@@ -26,6 +28,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.decide.outputs.publish }}
     steps:
       - uses: actions/checkout@v5
 
@@ -42,6 +46,7 @@ jobs:
           FORCE: ${{ inputs.force && '1' || '' }}
 
       - name: Veriyi repoya kaydet
+        id: save
         if: github.event_name != 'push'
         run: |
           git config user.name "github-actions[bot]"
@@ -52,16 +57,25 @@ jobs:
           else
             git commit -m "Nöbet listesi $(TZ=Europe/Istanbul date +'%Y-%m-%d %H:%M')"
             git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # Saatlik kontrolde değişiklik yoksa yayınlamaya gerek yok.
+      - name: Yayınlansın mı?
+        id: decide
+        run: echo "publish=${{ github.event_name != 'schedule' || steps.save.outputs.changed == 'true' }}" >> "$GITHUB_OUTPUT"
+
       - name: Siteyi hazırla
+        if: steps.decide.outputs.publish == 'true'
         run: |
           mkdir -p _site
           cp index.html manifest.webmanifest sw.js _site/
           cp -r icons data _site/
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v4
+      - if: steps.decide.outputs.publish == 'true'
+        uses: actions/configure-pages@v5
+      - if: steps.decide.outputs.publish == 'true'
+        uses: actions/upload-pages-artifact@v4
         with:
           path: _site
 
@@ -69,6 +83,7 @@ jobs:
   # Yine de bulamazsa 30 sn bekleyip bir kez daha dener.
   deploy:
     needs: build
+    if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

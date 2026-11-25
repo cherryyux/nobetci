@@ -6,10 +6,11 @@ Konum izni yoksa ilçe seçerek bakılır. Telefona "Ana ekrana ekle" ile uygula
 ## Nasıl çalışıyor
 
 ```
-GitHub Actions (her gece 00:35)  →  EczaneAPI  →  data/istanbul.json  →  GitHub Pages  →  telefon
+GitHub Actions (saatte bir bakar)  →  EczaneAPI  →  data/istanbul.json  →  GitHub Pages  →  telefon
 ```
 
-- Liste her gece **bir kez** çekilir (07:05 ve 18:05'te yalnızca gece başarısız olduysa tekrar denenir). Kaç kişi açarsa açsın API'ye günde bir istek gider.
+- İş her saat :17'de çalışır ama API'yi günde yalnızca **iki kez** çağırır: gece yarısından sonra (yeni günün listesi) ve 17:00'den sonra (nöbet 19:00'da başlamadan son dakika değişiklikleri). Biri atlanırsa bir saat sonraki telafi eder. Değişiklik yoksa commit ve yayın da yapılmaz.
+- İstanbul'da eczaneler 09:00–19:00 açık; nöbet 19:00'dan ertesi sabah 09:00'a kadar, pazar ve resmî tatillerde bütün gün.
 - API anahtarı GitHub'ın gizli değişkeninde durur, tarayıcıya hiç gitmez.
 - Nöbet günü sabah 09:00'da değişir: 09:00'dan önce dünkü liste, sonra bugünkü liste gösterilir. Gündüz "bu akşam nöbetçi" diye işaretlenir, pazar günü bütün gün nöbet sayılır.
 - Konum telefonda kalır, hiçbir yere gönderilmez.
@@ -44,5 +45,5 @@ Elle denemek için: `ECZANEAPI_KEY=... node scripts/fetch.mjs`, sonra `npx serve
 
 - **Veri resmî kaynak değil.** İstanbul Eczacı Odası listesini üçüncü taraflara açmıyor, o yüzden veri EczaneAPI'den geliyor. Nöbet son dakika değişebilir: gitmeden önce ara. Sayfanın altında e-Devlet ve Eczacı Odası bağlantıları duruyor.
 - EczaneAPI ücretsiz planın günlük kotasını sitesinde yazmıyor. Günde bir istek her planda yetecek kadar az; kota dolarsa iş kırmızı yanar, eski liste yerinde kalır.
-- GitHub, 60 gün hiç commit olmayan repolarda zamanlanmış işleri durdurur. Burada her gece veri commit'lendiği için bu olmaz.
+- GitHub, 60 gün hiç commit olmayan repolarda zamanlanmış işleri durdurur. Burada her gün veri commit'lendiği için bu olmaz.
 - Mesafe kuş uçuşudur; yürüme süresi kaba bir tahmindir.

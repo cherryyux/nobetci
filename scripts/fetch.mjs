@@ -54,6 +54,23 @@ export function trDay(date = new Date(), offsetDays = 0) {
   return new Intl.DateTimeFormat('en-CA', {timeZone: 'Europe/Istanbul'}).format(d);
 }
 
+/** Hour (0-23) in Turkey time. */
+export function trHour(date = new Date()) {
+  return +new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Istanbul', hour: '2-digit', hourCycle: 'h23'}).format(date);
+}
+
+// Nöbet 19:00'da başlar. Gece yarısından sonra yeni günün listesi bir kez çekilir;
+// 17:00'den sonra son dakika değişiklikleri için bir kez daha. Saatlik iş geri kalan her seferinde API'yi çağırmaz.
+export const EVENING_HOUR = 17;
+export function fetchReason(prev, now = new Date(), force = false) {
+  if (force) return 'elle istendi';
+  const today = trDay(now);
+  if (prev?.fetchedDay !== today || !prev?.days?.[today]?.length) return 'yeni gün';
+  const last = prev.fetchedAt ? new Date(prev.fetchedAt) : null;
+  if (trHour(now) >= EVENING_HOUR && (!last || trDay(last) !== today || trHour(last) < EVENING_HOUR)) return 'akşam kontrolü';
+  return null;
+}
+
 function num(v) {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v.trim()) : NaN;
   return Number.isFinite(n) ? n : null;
@@ -146,10 +163,12 @@ async function updateCity(slug, now) {
   const file = join(DATA_DIR, `${slug}.json`);
   const prev = await readJson(file);
   const today = trDay(now);
-  if (!FORCE && prev?.fetchedDay === today && prev?.days?.[today]?.length) {
-    console.log(`• ${slug}: bugün zaten çekilmiş (${prev.fetchedAt}), API çağrılmadı.`);
+  const reason = fetchReason(prev, now, FORCE);
+  if (!reason) {
+    console.log(`• ${slug}: liste güncel (son çekim ${prev.fetchedAt}), API çağrılmadı.`);
     return {slug, name: prev.name || NAMES[slug] || slug, ok: true, cached: true};
   }
+  console.log(`→ ${slug}: ${reason}, API'den isteniyor.`);
   const payload = await request(`${API}/pharmacies/on-duty?city=${encodeURIComponent(slug)}`);
   const {days, skipped, noPoint, foreign} = transform(payload, slug);
   const keepFrom = trDay(now, -1);

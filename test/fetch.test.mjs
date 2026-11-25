@@ -90,7 +90,7 @@ test('end to end: one request a day, FORCE asks again, failures keep the old fil
   r = await run(env);
   assert.equal(r.code, 0);
   assert.equal(calls, 1, 'second run the same day does not call the API');
-  assert.match(r.stdout, /zaten çekilmiş/);
+  assert.match(r.stdout, /liste güncel|akşam kontrolü/);
   assert.equal(await readFile(join(dir, 'index.json'), 'utf8'), idxBefore, 'skipped run leaves index.json alone (no commit)');
 
   r = await run({...env, FORCE: '1'});
@@ -131,4 +131,21 @@ test('old days are pruned, a still-running list survives a partial answer', asyn
   assert.ok(!out.days[day(today, -3)], 'three days ago dropped');
   assert.equal(out.days[day(today, -1)][0].n, 'Dünkü Liste', 'yesterday kept from the old file');
   assert.ok(out.days[today].length > 10);
+});
+
+test('fetch schedule: new day after midnight, one evening check, otherwise skip', async () => {
+  const {fetchReason} = await import('../scripts/fetch.mjs');
+  const at = s => new Date(s);                       // times in +03:00
+  const prev = (fetchedAt, day) => ({fetchedAt: at(fetchedAt).toISOString(), fetchedDay: day, days: {[day]: [{}]}});
+  const p0035 = prev('2026-11-25T00:35:00+03:00', '2026-11-25');
+  assert.equal(fetchReason(null, at('2026-11-25T00:17:00+03:00')), 'yeni gün');
+  assert.equal(fetchReason(prev('2026-11-24T17:20:00+03:00', '2026-11-24'), at('2026-11-25T00:17:00+03:00')), 'yeni gün');
+  assert.equal(fetchReason(p0035, at('2026-11-25T09:17:00+03:00')), null, 'daytime: no call');
+  assert.equal(fetchReason(p0035, at('2026-11-25T16:17:00+03:00')), null);
+  assert.equal(fetchReason(p0035, at('2026-11-25T17:17:00+03:00')), 'akşam kontrolü');
+  assert.equal(fetchReason(prev('2026-11-25T17:17:00+03:00', '2026-11-25'), at('2026-11-25T18:17:00+03:00')), null, 'evening check only once');
+  assert.equal(fetchReason(p0035, at('2026-11-25T20:17:00+03:00')), 'akşam kontrolü', 'missed 17/18 runs are made up later');
+  assert.equal(fetchReason(p0035, at('2026-11-25T10:00:00+03:00'), true), 'elle istendi');
+  // 00:17 run on the 26th, previous evening fetch on the 25th
+  assert.equal(fetchReason(prev('2026-11-25T17:17:00+03:00', '2026-11-25'), at('2026-11-26T00:17:00+03:00')), 'yeni gün');
 });
